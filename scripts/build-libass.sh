@@ -47,10 +47,15 @@ download_and_extract() {
     if [ ! -d "$dest" ]; then
         echo "Downloading $url..."
         mkdir -p "$(dirname "$dest")"
-        curl -L "$url" -o "$dest.tar.gz"
+        local archive="$dest.archive"
+        curl -L "$url" -o "$archive"
         mkdir -p "$dest"
-        tar xzf "$dest.tar.gz" -C "$dest" --strip-components=1
-        rm "$dest.tar.gz"
+        if echo "$url" | grep -q '\.tar\.xz'; then
+            tar xJf "$archive" -C "$dest" --strip-components=1
+        else
+            tar xzf "$archive" -C "$dest" --strip-components=1
+        fi
+        rm "$archive"
     fi
 }
 
@@ -141,8 +146,7 @@ build_arch() {
         "$HARFBUZZ_SRC"
 
     cd "$HARFBUZZ_SRC"
-    make clean 2>/dev/null || true
-    # HarfBuzz uses meson, but we can use the cmake build
+    rm -rf build-$ARCH
     mkdir -p build-$ARCH && cd build-$ARCH
     cmake .. \
         -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
@@ -150,6 +154,11 @@ build_arch() {
         -DANDROID_PLATFORM=android-$API_LEVEL \
         -DCMAKE_INSTALL_PREFIX="$PREFIX" \
         -DCMAKE_PREFIX_PATH="$PREFIX" \
+        -DCMAKE_FIND_ROOT_PATH="$PREFIX" \
+        -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH \
+        -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=BOTH \
+        -DFREETYPE_INCLUDE_DIRS="$PREFIX/include/freetype2" \
+        -DFREETYPE_LIBRARY="$PREFIX/lib/libfreetype.so" \
         -DBUILD_SHARED_LIBS=ON \
         -DHB_HAVE_FREETYPE=ON \
         -DHB_HAVE_GLIB=OFF \

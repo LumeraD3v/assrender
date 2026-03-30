@@ -1,4 +1,5 @@
 #include <jni.h>
+#include <stdio.h>
 #include <android/bitmap.h>
 #include <android/log.h>
 #include <string.h>

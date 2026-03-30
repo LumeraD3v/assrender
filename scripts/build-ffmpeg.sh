@@ -86,6 +86,7 @@ build_arch() {
 
     CC="${TOOLCHAIN}/bin/${TARGET}${API_LEVEL}-clang"
     CXX="${TOOLCHAIN}/bin/${TARGET}${API_LEVEL}-clang++"
+    STRIP="${TOOLCHAIN}/bin/llvm-strip"
 
     ./configure \
         --prefix="$PREFIX" \
@@ -95,6 +96,7 @@ build_arch() {
         --cpu=$CPU \
         --cc="$CC" \
         --cxx="$CXX" \
+        --strip="$STRIP" \
         --sysroot="$TOOLCHAIN/sysroot" \
         --enable-shared \
         --disable-static \
