@@ -1,0 +1,17 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/assrender/build
+/prebuilt
+/build
+*.log
+*.apk
+*.aar
+*.so
+
+# Native build artifacts
+.cxx/
+.externalNativeBuild/

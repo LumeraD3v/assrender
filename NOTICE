@@ -1,0 +1,10 @@
+assrender
+Copyright 2026 LumeraD3v
+
+This product includes software developed by:
+
+- FFmpeg (https://ffmpeg.org/) — LGPL 2.1+
+- libass (https://github.com/libass/libass) — ISC License
+- FreeType (https://freetype.org/) — FreeType License / GPLv2
+- FriBidi (https://github.com/fribidi/fribidi) — LGPL 2.1+
+- HarfBuzz (https://github.com/harfbuzz/harfbuzz) — Old MIT License
