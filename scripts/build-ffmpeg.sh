@@ -15,6 +15,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$PROJECT_DIR/build/ffmpeg"
 FFMPEG_SRC="$BUILD_DIR/ffmpeg-src"
+MBEDTLS_SRC="$BUILD_DIR/mbedtls-src"
+MBEDTLS_VERSION="3.6.3"
 API_LEVEL=21
 
 # --- Validate NDK ---
@@ -76,17 +78,51 @@ build_arch() {
     local BUILD="$BUILD_DIR/build-$ARCH"
 
     echo "========================================="
-    echo "Building FFmpeg for $ANDROID_ABI"
+    echo "Building FFmpeg for $ANDROID_ABI (with TLS)"
     echo "========================================="
-
-    mkdir -p "$BUILD"
-    cd "$FFMPEG_SRC"
-
-    make clean 2>/dev/null || true
 
     CC="${TOOLCHAIN}/bin/${TARGET}${API_LEVEL}-clang"
     CXX="${TOOLCHAIN}/bin/${TARGET}${API_LEVEL}-clang++"
     STRIP="${TOOLCHAIN}/bin/llvm-strip"
+    AR="${TOOLCHAIN}/bin/llvm-ar"
+    RANLIB="${TOOLCHAIN}/bin/llvm-ranlib"
+
+    # --- Build mbedTLS (static, linked into FFmpeg) ---
+    echo "--- Building mbedTLS for $ANDROID_ABI ---"
+    if [ ! -d "$MBEDTLS_SRC" ]; then
+        echo "Downloading mbedTLS..."
+        mkdir -p "$BUILD_DIR"
+        curl -L "https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-${MBEDTLS_VERSION}/mbedtls-${MBEDTLS_VERSION}.tar.bz2" -o "$BUILD_DIR/mbedtls.tar.bz2"
+        mkdir -p "$MBEDTLS_SRC"
+        tar xjf "$BUILD_DIR/mbedtls.tar.bz2" -C "$MBEDTLS_SRC" --strip-components=1
+        rm "$BUILD_DIR/mbedtls.tar.bz2"
+    fi
+
+    local MBEDTLS_BUILD="$BUILD_DIR/mbedtls-build-$ARCH"
+    local MBEDTLS_PREFIX="$BUILD_DIR/mbedtls-install-$ARCH"
+    rm -rf "$MBEDTLS_BUILD"
+    mkdir -p "$MBEDTLS_BUILD" && cd "$MBEDTLS_BUILD"
+
+    cmake "$MBEDTLS_SRC" \
+        -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+        -DANDROID_ABI=$ANDROID_ABI \
+        -DANDROID_PLATFORM=android-$API_LEVEL \
+        -DCMAKE_INSTALL_PREFIX="$MBEDTLS_PREFIX" \
+        -DENABLE_TESTING=OFF \
+        -DENABLE_PROGRAMS=OFF \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DCMAKE_C_FLAGS="-fPIC -Os"
+
+    make -j$(nproc 2>/dev/null || echo 4)
+    make install
+
+    echo "mbedTLS installed to $MBEDTLS_PREFIX"
+
+    # --- Build FFmpeg ---
+    mkdir -p "$BUILD"
+    cd "$FFMPEG_SRC"
+
+    make clean 2>/dev/null || true
 
     ./configure \
         --prefix="$PREFIX" \
@@ -98,6 +134,7 @@ build_arch() {
         --cxx="$CXX" \
         --strip="$STRIP" \
         --sysroot="$TOOLCHAIN/sysroot" \
+        --enable-version3 \
         --enable-shared \
         --disable-static \
         --disable-programs \
@@ -131,6 +168,11 @@ build_arch() {
         --enable-protocol=https \
         --enable-protocol=tcp \
         --enable-protocol=tls \
+        --enable-protocol=httpproxy \
+        --enable-protocol=hls \
+        \
+        --enable-network \
+        --enable-mbedtls \
         \
         --disable-avdevice \
         --disable-swscale \
@@ -142,8 +184,6 @@ build_arch() {
         --disable-filters \
         --disable-indevs \
         --disable-outdevs \
-        --disable-network \
-        --enable-network \
         \
         --disable-vulkan \
         --disable-vdpau \
@@ -152,8 +192,9 @@ build_arch() {
         --disable-audiotoolbox \
         --disable-asm \
         \
-        --extra-cflags="-fPIC -Os" \
-        --extra-ldflags="-Wl,--gc-sections"
+        --extra-cflags="-fPIC -Os -I$MBEDTLS_PREFIX/include" \
+        --extra-ldflags="-Wl,--gc-sections -L$MBEDTLS_PREFIX/lib" \
+        --extra-libs="-lmbedtls -lmbedx509 -lmbedcrypto"
 
     make -j$(nproc 2>/dev/null || echo 4)
     make install

@@ -1,0 +1,14 @@
+prefix=/home/lenovo/assrender-build/prebuilt/armeabi-v7a
+exec_prefix=${prefix}
+libdir=/home/lenovo/assrender-build/prebuilt/armeabi-v7a/lib
+includedir=/home/lenovo/assrender-build/prebuilt/armeabi-v7a/include
+
+Name: libavformat
+Description: FFmpeg container format library
+Version: 61.7.102
+Requires: 
+Requires.private: libavcodec >= 61.19.101, libavutil >= 59.39.100
+Conflicts:
+Libs: -L${libdir}  -lavformat 
+Libs.private: -lm -latomic -lz -lmbedtls -lmbedx509 -lmbedcrypto
+Cflags: -I${includedir}

@@ -1,0 +1,14 @@
+prefix=/home/lenovo/assrender-build/prebuilt/arm64-v8a
+exec_prefix=/home/lenovo/assrender-build/prebuilt/arm64-v8a
+libdir=/home/lenovo/assrender-build/prebuilt/arm64-v8a/lib
+includedir=/home/lenovo/assrender-build/prebuilt/arm64-v8a/include
+
+Name: FreeType 2
+URL: https://freetype.org
+Description: A free, high-quality, and portable font engine.
+Version: 26.2.20
+Requires: 
+Requires.private: 
+Libs: -L/home/lenovo/assrender-build/prebuilt/arm64-v8a/lib -lfreetype
+Libs.private: 
+Cflags: -I${includedir}/freetype2

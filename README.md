@@ -1,65 +1,72 @@
 # assrender
 
-Bulletproof ASS/SSA subtitle renderer for Android Media3/ExoPlayer.
+ASS/SSA subtitle renderer for Android Media3/ExoPlayer.
 
-**The problem:** ExoPlayer's built-in ASS/SSA support strips all styling. Existing libass wrappers rely on ExoPlayer's broken subtitle demuxer, causing crashes and rendering glitches.
+**The problem:** ExoPlayer's built-in ASS/SSA support strips all styling (fonts, colors, positioning, animations). Subtitles render as plain text.
 
-**The solution:** Use FFmpeg for subtitle extraction and libass for rendering. ExoPlayer's subtitle pipeline is never touched.
+**The solution:** Intercept raw ASS data from ExoPlayer's extraction pipeline and render it with libass, preserving full styling. No FFmpeg needed — works with any source ExoPlayer supports (HTTP, HLS, DASH, local files, torrents).
 
 ## Architecture
 
 ```
-ExoPlayer (video + audio only)
-         │ playback clock
-         ▼
-AssSubtitleRenderer (Media3 Renderer)
-         │ JNI
-         ▼
-FFmpeg (demux subs) → libass (render to bitmap)
-         │
-         ▼
-SubtitleOverlayView (transparent canvas on top of video)
+MKV/MP4 Container
+    |
+    v
+AssMatroskaExtractor (extends MatroskaExtractor)
+    |--- extracts font attachments --> AssHandler.onFontAttachment() --> libass
+    |--- wraps ExtractorOutput via reflection
+    v
+AssTrackOutput (eavesdrops on raw ASS data)
+    |--- captures ASS headers from initializationData
+    |--- captures dialogue events from sampleData
+    |--- forwards everything to ExoPlayer unchanged
+    v
+AssHandler (coordinates libass rendering)
+    |--- stores events per track for instant track switching
+    |--- syncs with ExoPlayer's track selection
+    |--- 30fps render loop using player.currentPosition
+    v
+SubtitleOverlayView (transparent bitmap canvas on top of video)
 ```
 
 ## Usage
 
 ```kotlin
-val overlayView = findViewById<SubtitleOverlayView>(R.id.subtitle_overlay)
+val assHandler = AssHandler(SubtitleOverlayView(context))
+assHandler.player = player
 
-val player = ExoPlayer.Builder(context)
-    .setRenderersFactory(AssRenderer.buildRenderersFactory(context, overlayView))
+val player = ExoPlayer.Builder(context, AssRenderersFactory(context, assHandler))
+    .setMediaSourceFactory(
+        DefaultMediaSourceFactory(dataSourceFactory, AssExtractorsFactory(assHandler))
+    )
     .build()
-
-// Point to the same stream URL — FFmpeg extracts subs independently
-AssRenderer.setSubtitleSource(player, videoUrl)
 ```
 
-## Building Native Libraries
+## Features
 
-Requires Android NDK. Set `ANDROID_NDK_HOME` environment variable.
-
-```bash
-# Build everything (FFmpeg + libass + deps) for both architectures
-./scripts/build-all.sh
-
-# Or build for a specific architecture
-./scripts/build-all.sh arm64
-./scripts/build-all.sh arm
-```
-
-## Supported Formats
-
-| Format | Container | Status |
-|--------|-----------|--------|
-| ASS/SSA | MKV, MP4, AVI | Full styling, fonts, animations |
-| SRT | MKV, MP4, standalone | Basic rendering via libass |
-| PGS | MKV, MP4 | Planned |
-| VobSub | MKV, AVI | Planned |
+- Full ASS/SSA styling: fonts, colors, positioning, animations, karaoke
+- Embedded font extraction from MKV containers
+- Instant track switching with event replay
+- No FFmpeg dependency for playback
+- Works with any ExoPlayer source (HTTP, HLS, local, torrent)
+- Minimal integration: two factory swaps
 
 ## Target Architectures
 
 - `arm64-v8a` — modern Android TV, phones
-- `armeabi-v7a` — budget Android TV sticks (Amlogic S905W etc.)
+- `armeabi-v7a` — budget Android TV sticks
+
+## Building Native Libraries
+
+Only needed for development. The AAR includes prebuilt native libraries.
+
+Requires Android NDK + WSL (on Windows).
+
+```bash
+export ANDROID_NDK_HOME=~/android-ndk-r27c
+./scripts/build-libass.sh arm64
+./scripts/build-libass.sh arm
+```
 
 ## License
 

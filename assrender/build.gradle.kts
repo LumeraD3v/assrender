@@ -1,6 +1,6 @@
 plugins {
-    alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
+    id("com.android.library")
+    id("org.jetbrains.kotlin.android")
 }
 
 android {
@@ -54,8 +54,8 @@ android {
 }
 
 dependencies {
-    implementation(libs.media3.exoplayer)
-    implementation(libs.media3.common)
-    implementation(libs.media3.ui)
-    implementation(libs.annotation)
+    compileOnly("androidx.media3:media3-exoplayer:1.5.1")
+    compileOnly("androidx.media3:media3-common:1.5.1")
+    compileOnly("androidx.media3:media3-ui:1.5.1")
+    implementation("androidx.annotation:annotation:1.9.1")
 }

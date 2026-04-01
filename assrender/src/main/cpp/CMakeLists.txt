@@ -55,6 +55,8 @@ include_directories(
 add_library(assrender SHARED
     assrender_jni.c
     subtitle_pipeline.c
+    ass_direct.c
+    ass_direct_jni.c
 )
 
 target_link_libraries(assrender

@@ -8,7 +8,7 @@ import androidx.annotation.Keep
  * All methods are internal — public API is through [AssRenderer].
  */
 @Keep
-internal object NativeBridge {
+object NativeBridge {
 
     init {
         System.loadLibrary("assrender")
