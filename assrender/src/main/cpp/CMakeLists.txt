@@ -46,6 +46,16 @@ set_target_properties(harfbuzz PROPERTIES
     IMPORTED_LOCATION "${PREBUILT_DIR}/lib/libharfbuzz.so"
 )
 
+add_library(fontconfig SHARED IMPORTED)
+set_target_properties(fontconfig PROPERTIES
+    IMPORTED_LOCATION "${PREBUILT_DIR}/lib/libfontconfig.so"
+)
+
+add_library(expat SHARED IMPORTED)
+set_target_properties(expat PROPERTIES
+    IMPORTED_LOCATION "${PREBUILT_DIR}/lib/libexpat.so"
+)
+
 # --- Include paths ---
 include_directories(
     "${PREBUILT_DIR}/include"
@@ -68,6 +78,8 @@ target_link_libraries(assrender
     freetype
     fribidi
     harfbuzz
+    fontconfig
+    expat
     android
     jnigraphics
     log

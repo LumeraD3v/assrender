@@ -1,10 +1,13 @@
 package io.github.assrender
 
+import android.content.Context
 import android.graphics.Bitmap
+import android.system.Os
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import androidx.media3.common.Format
+import java.io.File
 
 /**
  * Coordinates the ASS subtitle pipeline:
@@ -14,6 +17,7 @@ import androidx.media3.common.Format
  * - Manages the [SubtitleOverlayView] display
  */
 class AssHandler(
+    private val context: Context,
     val overlayView: SubtitleOverlayView,
     private val videoWidth: Int = 1920,
     private val videoHeight: Int = 1080
@@ -47,7 +51,7 @@ class AssHandler(
     var player: androidx.media3.exoplayer.ExoPlayer? = null
 
     private var lastRenderedMs: Long = Long.MIN_VALUE
-    private var renderRunnable: Runnable? = null
+    private var choreographerCallback: android.view.Choreographer.FrameCallback? = null
 
     /**
      * Called by [AssTrackOutput] when ASS header (codec private) is available.
@@ -58,6 +62,7 @@ class AssHandler(
 
         // Initialize on first ASS track
         if (!initialized) {
+            setupFontconfig()
             nativeHandle = AssDirectBridge.nativeInit(videoWidth, videoHeight, 1.0f)
             if (nativeHandle == 0L) {
                 Log.e(TAG, "Failed to init native context")
@@ -179,16 +184,26 @@ class AssHandler(
     }
 
     private fun startRenderLoop() {
-        renderRunnable?.let { mainHandler.removeCallbacks(it) }
+        stopRenderLoop()
 
-        val runnable = object : Runnable {
-            override fun run() {
+        val callback = object : android.view.Choreographer.FrameCallback {
+            override fun doFrame(frameTimeNanos: Long) {
                 renderFrame()
-                mainHandler.postDelayed(this, 33) // ~30fps
+                // Schedule next frame
+                if (choreographerCallback === this) {
+                    android.view.Choreographer.getInstance().postFrameCallback(this)
+                }
             }
         }
-        renderRunnable = runnable
-        mainHandler.post(runnable)
+        choreographerCallback = callback
+        android.view.Choreographer.getInstance().postFrameCallback(callback)
+    }
+
+    private fun stopRenderLoop() {
+        choreographerCallback?.let {
+            android.view.Choreographer.getInstance().removeFrameCallback(it)
+        }
+        choreographerCallback = null
     }
 
     private fun renderFrame() {
@@ -273,18 +288,39 @@ class AssHandler(
         if (nativeHandle != 0L) {
             AssDirectBridge.nativeFlush(nativeHandle)
         }
-        // Stop render loop and clear overlay
-        renderRunnable?.let { mainHandler.removeCallbacks(it) }
-        renderRunnable = null
+        stopRenderLoop()
         mainHandler.post { overlayView.clear() }
+    }
+
+    /**
+     * Set up fontconfig by extracting fonts.conf to app's files dir
+     * and setting FONTCONFIG_PATH environment variable.
+     */
+    private fun setupFontconfig() {
+        try {
+            val fontconfigDir = File(context.filesDir, "fontconfig")
+            fontconfigDir.mkdirs()
+            val confFile = File(fontconfigDir, "fonts.conf")
+            if (!confFile.exists()) {
+                context.assets.open("fonts.conf").use { input ->
+                    confFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            }
+            // Set environment variable for fontconfig
+            Os.setenv("FONTCONFIG_PATH", fontconfigDir.absolutePath, true)
+            Log.d(TAG, "Fontconfig configured: ${fontconfigDir.absolutePath}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to setup fontconfig", e)
+        }
     }
 
     /**
      * Release all resources.
      */
     fun release() {
-        renderRunnable?.let { mainHandler.removeCallbacks(it) }
-        renderRunnable = null
+        stopRenderLoop()
 
         if (nativeHandle != 0L) {
             AssDirectBridge.nativeDestroy(nativeHandle)

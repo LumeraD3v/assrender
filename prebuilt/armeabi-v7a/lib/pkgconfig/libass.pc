@@ -7,7 +7,7 @@ Name: libass
 Description: libass is an SSA/ASS subtitles rendering library
 Version: 0.17.3
 Requires: 
-Requires.private: harfbuzz >= 1.2.3, fribidi >= 0.19.1, freetype2 >= 9.17.3
+Requires.private: fontconfig >= 2.10.92, harfbuzz >= 1.2.3, fribidi >= 0.19.1, freetype2 >= 9.17.3
 Libs: -L${libdir} -lass 
 Libs.private: -lm 
 Cflags: -I${includedir}
