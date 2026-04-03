@@ -20,11 +20,9 @@ class AssTimeRenderer(
 
     override fun isReady(): Boolean = true
 
-    override fun isEnded(): Boolean = false
+    override fun isEnded(): Boolean = true
 
     override fun onDisabled() {
         super.onDisabled()
-        // Don't release handler here — ExoPlayer disables/re-enables renderers
-        // during track switching. Handler lifecycle is managed by ExoPlayerBackend.
     }
 }

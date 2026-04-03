@@ -24,6 +24,10 @@ class AssHandler(
 ) {
     /** Called when the first ASS track is detected — use to hide ExoPlayer subtitles */
     var onAssTrackDetected: (() -> Unit)? = null
+
+    init {
+        setupFontconfig()
+    }
     companion object {
         private const val TAG = "assrender"
     }
@@ -62,7 +66,6 @@ class AssHandler(
 
         // Initialize on first ASS track
         if (!initialized) {
-            setupFontconfig()
             nativeHandle = AssDirectBridge.nativeInit(videoWidth, videoHeight, 1.0f)
             if (nativeHandle == 0L) {
                 Log.e(TAG, "Failed to init native context")
@@ -300,17 +303,24 @@ class AssHandler(
         try {
             val fontconfigDir = File(context.filesDir, "fontconfig")
             fontconfigDir.mkdirs()
+            val cacheDir = File(context.cacheDir, "fontconfig")
+            cacheDir.mkdirs()
+
+            // Generate fonts.conf with app-writable cache directory
             val confFile = File(fontconfigDir, "fonts.conf")
-            if (!confFile.exists()) {
-                context.assets.open("fonts.conf").use { input ->
-                    confFile.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
-                }
-            }
-            // Set environment variable for fontconfig
+            confFile.writeText("""<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+    <dir>/system/fonts</dir>
+    <cachedir>${cacheDir.absolutePath}</cachedir>
+    <match target="pattern">
+        <edit name="antialias" mode="assign"><bool>true</bool></edit>
+        <edit name="hinting" mode="assign"><bool>true</bool></edit>
+    </match>
+</fontconfig>""")
+
             Os.setenv("FONTCONFIG_PATH", fontconfigDir.absolutePath, true)
-            Log.d(TAG, "Fontconfig configured: ${fontconfigDir.absolutePath}")
+            Log.d(TAG, "Fontconfig configured, cache: ${cacheDir.absolutePath}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to setup fontconfig", e)
         }
